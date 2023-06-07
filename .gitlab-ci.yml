@@ -7,3 +7,7 @@ include:
 gemnasium-maven-dependency_scanning:
   variables:
     DS_JAVA_VERSION: 8
+spotbugs-sast:
+  variables:
+    SAST_JAVA_VERSION: 8
+
