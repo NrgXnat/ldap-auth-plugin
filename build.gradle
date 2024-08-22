@@ -9,7 +9,7 @@
 
 buildscript {
     ext {
-        vXnat = "1.8.0"
+        vXnat = "1.8.3"
     }
 }
 
@@ -26,15 +26,14 @@ plugins {
 }
 
 group "org.nrg.xnatx.plugins.auth"
-version "1.1.0"
+version "1.1.1-SNAPSHOT"
 description = "XNAT LDAP Authentication Provider"
 
 repositories {
     mavenLocal()
-    mavenCentral()
-    jcenter()
     maven { url "https://nrgxnat.jfrog.io/nrgxnat/libs-release" }
     maven { url "https://nrgxnat.jfrog.io/nrgxnat/libs-snapshot" }
+    mavenCentral()
 }
 
 sourceCompatibility = 1.8

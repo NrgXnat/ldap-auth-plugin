@@ -1,0 +1,13 @@
+---
+include:
+  - project: flywheel-io/infrastructure/ci-templates
+    ref: master
+    file: security-scans.yml
+
+gemnasium-maven-dependency_scanning:
+  variables:
+    DS_JAVA_VERSION: 8
+spotbugs-sast:
+  variables:
+    SAST_JAVA_VERSION: 8
+
