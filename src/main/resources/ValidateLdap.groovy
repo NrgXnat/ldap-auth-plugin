@@ -24,18 +24,42 @@ if (file.exists()) {
     println "No properties file found, using default values"
 }
 
-def address = properties.getProperty "address", "ldap://ldap.xnat.org"
-def userDn = properties.getProperty "userdn", "cn=admin,dc=xnat,dc=org"
-def bindingPassword = properties.getProperty "password", "password"
-def searchBase = properties.getProperty "search.base", "ou=users,dc=xnat,dc=org"
-def searchFilter = properties.getProperty "search.filter", "(uid={0})"
-def username = properties.getProperty "validate.username", "asmith"
-def password = properties.getProperty "validate.password", "password"
+def address = properties.getProperty "address"
+def userDn = properties.getProperty "userdn"
+def bindingPassword = properties.getProperty "password"
+def searchBase = properties.getProperty "search.base"
+def searchFilter = properties.getProperty "search.filter"
+def username = properties.getProperty "validate.username"
+def password = properties.getProperty "validate.password"
+
+if (StringUtils.isAnyBlank(address, searchBase, searchFilter, username, password)) {
+    println "Usage: groovy ValidateLdap.groovy [ldap.properties]\n"
+    println "You must specify a value for the following properties in the properties file:\n"
+    println " * address"
+    println " * search.base"
+    println " * search.filter"
+    println " * validate.username"
+    println " * validate.password\n"
+    println "You can optionally specify the following properties in the properties file:\n"
+    println " * userdn"
+    println " * password\n"
+    System.exit 1
+}
+
+final hasBindingInfo = StringUtils.isNoneBlank(userDn, bindingPassword)
+if (!hasBindingInfo && !StringUtils.isAllBlank(userDn, bindingPassword)) {
+    println "Usage: groovy ValidateLdap.groovy [ldap.properties]\n"
+    println "If you specify a value for the userdn or password properties for binding,"
+    println " you must specify a value for *both* properties.\n"
+    System.exit 2
+}
 
 println ""
 println "Address:       ${address}"
-println "User DN:        ${userDn}"
-println "Password:      ${bindingPassword}"
+if (hasBindingInfo) {
+    println "User DN:        ${userDn}"
+    println "Password:      ${bindingPassword}"
+}
 println "Search base:   ${searchBase}"
 println "Search filter: ${searchFilter}"
 println "Username:      ${username}"
@@ -43,21 +67,29 @@ println "password:      ${password}"
 println ""
 
 def contextSource = new DefaultSpringSecurityContextSource(address)
-contextSource.setUserDn userDn
-contextSource.setPassword bindingPassword
+if (hasBindingInfo) {
+    contextSource.setUserDn userDn
+    contextSource.setPassword bindingPassword
+}
 contextSource.afterPropertiesSet()
 
-final String[] atoms = userDn.split ",", 2
-def bindingUsername = atoms[0]
-def bindingSearchBase = atoms.size() > 1 ? (atoms[1]) : ""
-
-println "Validating the binding user account '${bindingUsername}' with search base '${bindingSearchBase}'"
-def bindingUserAuthenticated = BindAndAuthenticate(contextSource, bindingSearchBase, "(${bindingUsername})", bindingUsername, bindingPassword)
-
-if (bindingUserAuthenticated) {
+if (hasBindingInfo) {
+    final String[] atoms = userDn.split ",", 2
+    def bindingUsername = atoms[0]
+    def bindingSearchBase = atoms.size() > 1 ? (atoms[1]) : ""
+    println "Validating the binding user account '${bindingUsername}' with search base '${bindingSearchBase}'"
+    if (!BindAndAuthenticate(contextSource, bindingSearchBase, "(${bindingUsername})", bindingUsername, bindingPassword)) {
+        println "Binding user '${bindingUsername}' could not be authenticated, exiting"
+        System.exit 3
+    }
     println "Binding user '${bindingUsername}' authenticated successfully, validating the user account '${username}'"
-    BindAndAuthenticate(contextSource, searchBase, searchFilter, username, password)
+} else {
+    println "Validating the user account '${username}'"
 }
+
+println BindAndAuthenticate(contextSource, searchBase, searchFilter, username, password)
+        ? "User '${username}' authenticated successfully"
+        : "User '${username}' could not be authenticated"
 
 private boolean BindAndAuthenticate(DefaultSpringSecurityContextSource contextSource, String searchBase, String searchFilter, username, String password) {
     println "Creating user search object with search base '${searchBase}' and filter '${searchFilter}"
