@@ -253,9 +253,23 @@ public class XnatLdapAuthenticationProvider extends LdapAuthenticationProvider i
             };
         }
 
-        final DefaultSpringSecurityContextSource contextSource = new DefaultSpringSecurityContextSource(attributes.getProperty(LDAP_ADDRESS));
-        contextSource.setUserDn(attributes.getProperty(LDAP_USERDN));
-        contextSource.setPassword(attributes.getProperty(LDAP_PASSWORD));
+        final String ldapAddress = attributes.getProperty(LDAP_ADDRESS);
+        if (StringUtils.isBlank(ldapAddress)) {
+            throw new ProviderNotFoundException("No LDAP address specified for provider " + attributes.getProviderId());
+        }
+
+        final String  userDn         = attributes.getProperty(LDAP_USERDN);
+        final String  password       = attributes.getProperty(LDAP_PASSWORD);
+        final boolean hasBindingInfo = StringUtils.isNoneBlank(userDn, password);
+        if (!hasBindingInfo && !StringUtils.isAllBlank(userDn, password)) {
+            throw new ProviderNotFoundException("If you specify a value for the userdn or password properties for LDAP binding, you must specify a value for *both* properties for provider " + attributes.getProviderId());
+        }
+
+        final DefaultSpringSecurityContextSource contextSource = new DefaultSpringSecurityContextSource(ldapAddress);
+        if (hasBindingInfo) {
+            contextSource.setUserDn(userDn);
+            contextSource.setPassword(password);
+        }
         contextSource.afterPropertiesSet();
 
         final BindAuthenticator ldapBindAuthenticator = new BindAuthenticator(contextSource);
