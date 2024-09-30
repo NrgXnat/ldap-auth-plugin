@@ -9,7 +9,7 @@
 
 buildscript {
     ext {
-        vXnat = "1.9.0-SNAPSHOT"
+        vXnat = "1.9.0"
     }
 }
 
@@ -26,7 +26,7 @@ plugins {
 }
 
 group "org.nrg.xnatx.plugins.auth"
-version "1.2.0-RC-SNAPSHOT"
+version "1.2.0"
 description = "XNAT LDAP Authentication Provider"
 
 repositories {
