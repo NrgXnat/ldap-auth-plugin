@@ -11,6 +11,7 @@ package org.nrg.xnatx.plugins.auth.ldap;
 
 import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
+import org.nrg.xdat.exceptions.UsernameAuthMappingNotFoundException;
 import org.nrg.xdat.preferences.SiteConfigPreferences;
 import org.nrg.xdat.security.helpers.Users;
 import org.nrg.xdat.services.XdatUserAuthService;
@@ -57,15 +58,44 @@ public class XnatLdapUserDetailsMapper extends LdapUserDetailsMapper implements 
                 _properties.setProperty(PROPERTY_LAST, "sn");
             }
         }
+        if (!_properties.containsKey(PROPERTY_UID)) {
+            _properties.setProperty(PROPERTY_UID, "uid");
+        }
+        if (!_properties.containsKey(PROPERTY_COMMONNAME)) {
+            _properties.setProperty(PROPERTY_COMMONNAME, "cn");
+        }
     }
 
     @Override
-    public UserI mapUserFromContext(final DirContextOperations context, final String username, final Collection<? extends GrantedAuthority> authorities) {
+    public UserI mapUserFromContext(final DirContextOperations context, final String usernameAsOnFormEntry, final Collection<? extends GrantedAuthority> authorities) {
+        final String adUsernameUID = (String) context.getObjectAttribute(_properties.getProperty(PROPERTY_UID));
         final String email     = (String) context.getObjectAttribute(_properties.getProperty(PROPERTY_EMAIL));
-        final String firstName = (String) context.getObjectAttribute(_properties.getProperty(PROPERTY_FIRST));
+        final String givenName = (String) context.getObjectAttribute(_properties.getProperty(PROPERTY_FIRST));
         final String lastName  = (String) context.getObjectAttribute(_properties.getProperty(PROPERTY_LAST));
+        final String commonName = (String) context.getObjectAttribute(_properties.getProperty(PROPERTY_COMMONNAME));
+        String firstName = givenName;
+        if (commonName != null && (givenName == null || givenName.isEmpty())) {
+            firstName = commonName;
+            int index = commonName.lastIndexOf(" " + lastName);
+            if (index > 0) {
+                firstName = commonName.substring(0, index).trim();
+            }
+        }
 
-        final UserI userDetails = _userAuthService.getUserDetailsByNameAndAuth(username, XdatUserAuthService.LDAP, _providerId, email, lastName, firstName);
+        UserI userDetails = null;
+        try {
+            userDetails = _userAuthService.getUserDetailsByNameAndAuth(adUsernameUID, XdatUserAuthService.LDAP, _providerId, email, lastName, firstName);
+        } catch (UsernameAuthMappingNotFoundException ue) {
+            //Backward compatibility for LDAP Plugin versions prior to 1.2.0 where usernameAsOnFormEntry was saved
+            log.info("User {} attempted to log using authentication provider ID {}, looking up against {}.", adUsernameUID, _providerId, usernameAsOnFormEntry);
+            try {
+                userDetails = _userAuthService.getUserDetailsByNameAndAuth(usernameAsOnFormEntry, XdatUserAuthService.LDAP, _providerId, email, lastName, firstName);
+            } catch (UsernameAuthMappingNotFoundException ignored) {}
+        }
+
+        if (userDetails == null) {
+            throw new UsernameAuthMappingNotFoundException(adUsernameUID, XdatUserAuthService.LDAP, _providerId, email, lastName, firstName);
+        }
 
         try {
             final UserI xdatUser = Users.getUser(userDetails.getUsername());
@@ -91,11 +121,14 @@ public class XnatLdapUserDetailsMapper extends LdapUserDetailsMapper implements 
 
     private static final String NOT_AUTO_ENABLED_MESSAGE = "Successful first-time authentication via LDAP, but accounts are not auto.enabled or email verification required.  We'll treat this the same as we would a user registration";
 
-    private static final String              PROPERTY_PREFIX    = "attributes.";
-    private static final String              PROPERTY_EMAIL     = PROPERTY_PREFIX + "email";
-    private static final String              PROPERTY_FIRST     = PROPERTY_PREFIX + "firstname";
-    private static final String              PROPERTY_LAST      = PROPERTY_PREFIX + "lastname";
-    private static final Map<String, String> DEFAULT_PROPERTIES = ImmutableMap.of(PROPERTY_EMAIL, "mail", PROPERTY_FIRST, "givenName", PROPERTY_LAST, "sn");
+    private static final String              PROPERTY_PREFIX           = "attributes.";
+    private static final String              PROPERTY_EMAIL            = PROPERTY_PREFIX + "email";
+    private static final String              PROPERTY_FIRST            = PROPERTY_PREFIX + "firstname";
+    private static final String              PROPERTY_LAST             = PROPERTY_PREFIX + "lastname";
+    private static final String              PROPERTY_UID              = PROPERTY_PREFIX + "uid";
+    private static final String              PROPERTY_COMMONNAME       = PROPERTY_PREFIX + "cn";
+
+    private static final Map<String, String> DEFAULT_PROPERTIES = ImmutableMap.of(PROPERTY_EMAIL, "mail", PROPERTY_FIRST, "givenName", PROPERTY_LAST, "sn", PROPERTY_UID, "uid", PROPERTY_COMMONNAME, "cn");
 
     private final String                _providerId;
     private final XdatUserAuthService   _userAuthService;
