@@ -11,6 +11,7 @@ package org.nrg.xnatx.plugins.auth.ldap;
 
 import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
+import org.nrg.xdat.exceptions.UsernameAuthMappingNotFoundException;
 import org.nrg.xdat.preferences.SiteConfigPreferences;
 import org.nrg.xdat.security.helpers.Users;
 import org.nrg.xdat.services.XdatUserAuthService;
@@ -80,7 +81,21 @@ public class XnatLdapUserDetailsMapper extends LdapUserDetailsMapper implements 
                 firstName = commonName.substring(0, index).trim();
             }
         }
-        final UserI userDetails = _userAuthService.getUserDetailsByNameAndAuth(adUsernameUID, XdatUserAuthService.LDAP, _providerId, email, lastName, firstName);
+
+        UserI userDetails = null;
+        try {
+            userDetails = _userAuthService.getUserDetailsByNameAndAuth(adUsernameUID, XdatUserAuthService.LDAP, _providerId, email, lastName, firstName);
+        } catch (UsernameAuthMappingNotFoundException ue) {
+            //Backward compatibility for LDAP Plugin versions prior to 1.2.0 where usernameAsOnFormEntry was saved
+            log.info("User {} attempted to log using authentication provider ID {}, looking up against {}.", adUsernameUID, _providerId, usernameAsOnFormEntry);
+            try {
+                userDetails = _userAuthService.getUserDetailsByNameAndAuth(usernameAsOnFormEntry, XdatUserAuthService.LDAP, _providerId, email, lastName, firstName);
+            } catch (UsernameAuthMappingNotFoundException ignored) {}
+        }
+
+        if (userDetails == null) {
+            throw new UsernameAuthMappingNotFoundException(adUsernameUID, XdatUserAuthService.LDAP, _providerId, email, lastName, firstName);
+        }
 
         try {
             final UserI xdatUser = Users.getUser(userDetails.getUsername());
