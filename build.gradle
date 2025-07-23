@@ -9,7 +9,7 @@
 
 buildscript {
     ext {
-        vXnat = "1.9.0"
+        vXnat = "1.10.0-RC-SNAPSHOT"
     }
 }
 
@@ -20,13 +20,13 @@ plugins {
     id "java"
     id "maven-publish"
     id "com.palantir.git-version" version "0.12.3"
-    id "io.franzbecker.gradle-lombok" version "4.0.0"
+    id "io.franzbecker.gradle-lombok" version "5.0.0"
     id "io.spring.dependency-management" version "1.0.11.RELEASE"
     id "org.nrg.xnat.build.xnat-data-builder" version "${vXnat}"
 }
 
 group "org.nrg.xnatx.plugins.auth"
-version "1.2.1"
+version "1.2.1-java21-RC-SNAPSHOT"
 description = "XNAT LDAP Authentication Provider"
 
 repositories {
@@ -36,8 +36,8 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 21
+targetCompatibility = 21
 
 dependencyManagement.imports {
     mavenBom "org.nrg:parent:${vXnat}"
@@ -108,6 +108,11 @@ try {
     isCleanTag = false
 }
 
+lombok {
+    version = dependencyManagement.importedProperties["lombok.version"] as String
+    sha256 = dependencyManagement.importedProperties["lombok.checksum"] as String
+}
+
 compileJava {
     options.fork = false
 }
@@ -120,14 +125,14 @@ jacoco {
     toolVersion = dependencyManagement.importedProperties["jacoco.version"] as String
 }
 
-jacocoTestReport {
-    dependsOn test
-    reports {
-        xml.enabled = false
-        csv.enabled = false
-        html.enabled = true
-    }
-}
+// jacocoTestReport {
+//     dependsOn test
+//     reports {
+//         xml.enabled = false
+//         csv.enabled = false
+//         html.enabled = true
+//     }
+// }
 
 jar {
     manifest {
