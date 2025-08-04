@@ -19,25 +19,29 @@ plugins {
     id "jacoco"
     id "java"
     id "maven-publish"
-    id "com.palantir.git-version" version "0.12.3"
+    id "com.palantir.git-version" version "4.0.0"
     id "io.franzbecker.gradle-lombok" version "5.0.0"
-    id "io.spring.dependency-management" version "1.0.11.RELEASE"
+    id "io.spring.dependency-management" version "1.1.7"
     id "org.nrg.xnat.build.xnat-data-builder" version "${vXnat}"
 }
 
-group "org.nrg.xnatx.plugins.auth"
-version "1.3.0-SNAPSHOT"
+group = "org.nrg.xnatx.plugins.auth"
+version = "1.3.0-SNAPSHOT"
 description = "XNAT LDAP Authentication Provider"
 
 repositories {
     mavenLocal()
-    maven { url "https://nrgxnat.jfrog.io/nrgxnat/libs-release" }
-    maven { url "https://nrgxnat.jfrog.io/nrgxnat/libs-snapshot" }
+    maven { url = "https://nrgxnat.jfrog.io/nrgxnat/libs-release" }
+    maven { url = "https://nrgxnat.jfrog.io/nrgxnat/libs-snapshot" }
     mavenCentral()
 }
 
-sourceCompatibility = 21
-targetCompatibility = 21
+configurations {
+    configureEach {
+        exclude group: "log4j"
+    }
+    implementation.extendsFrom(implementAndInclude)
+}
 
 dependencyManagement.imports {
     mavenBom "org.nrg:parent:${vXnat}"
@@ -73,6 +77,14 @@ dependencies {
     implementation "javax.servlet:javax.servlet-api"
 
     compileOnly "com.google.code.findbugs:jsr305"
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 idea {
@@ -117,24 +129,18 @@ compileJava {
     options.fork = false
 }
 
-configurations {
-    compile.extendsFrom(compileAndInclude)
+sourceSets {
+    main {
+        java {
+            srcDir "build/xnat-generated/src/main/java"
+        }
+        resources {
+            srcDir "build/xnat-generated/src/main/resources"
+        }
+    }
 }
 
-jacoco {
-    toolVersion = dependencyManagement.importedProperties["jacoco.version"] as String
-}
-
-// jacocoTestReport {
-//     dependsOn test
-//     reports {
-//         xml.enabled = false
-//         csv.enabled = false
-//         html.enabled = true
-//     }
-// }
-
-jar {
+tasks.withType(Jar).configureEach {
     manifest {
         attributes "Application-Name": project.description,
                 "Build-Date": buildDate,
@@ -150,21 +156,32 @@ jar {
     }
 }
 
-sourceSets {
-    main {
-        java {
-            srcDir "build/xnat-generated/src/main/java"
-        }
-        resources {
-            srcDir "build/xnat-generated/src/main/resources"
-        }
+tasks.register("xnatPluginJar", Jar) {
+    zip64 = true
+    archiveClassifier = "xpl"
+
+    // files and folders with "-dev" or "--xx" in their name
+    // will not be in the compiled jar
+    exclude "**/resources/**/*-dev**"
+    exclude "**/resources/**/*--xx**"
+
+    from {
+        configurations.implementAndInclude.collect { it.isDirectory() ? it : zipTree(it) }
+    } {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
     }
+    with jar
 }
 
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            from components.java
+            artifacts {
+                artifact sourcesJar
+                artifact xnatPluginJar
+            }
 
             versionMapping {
                 usage("java-api") {
@@ -210,7 +227,6 @@ publishing {
             }
         }
     }
-
     repositories {
         maven {
             credentials {
