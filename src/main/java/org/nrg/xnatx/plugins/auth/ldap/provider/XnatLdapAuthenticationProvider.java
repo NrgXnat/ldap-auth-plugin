@@ -75,19 +75,22 @@ public class XnatLdapAuthenticationProvider extends LdapAuthenticationProvider i
 
     @Override
     public Authentication authenticate(final Authentication authentication) throws AuthenticationException {
+        log.debug("Authenticating auth object of type {}: name {}, details {}, is authenticated {}", authentication.getClass(), authentication.getName(), authentication.getDetails(), authentication.isAuthenticated());
         final Authentication processed = super.authenticate(authentication);
-        log.debug("Found auth object of type: {} (principal is: {})", processed.getClass(), processed.getPrincipal().getClass());
+        log.debug("Found auth object of type: {} (principal is: {}), is authenticated {}", processed.getClass(), processed.getPrincipal().getClass(), processed.isAuthenticated());
 
         /*
          * Unlike the other authentication providers, we hafta do this check here. This class is on a different branch
          * of the class hierarchy, and so doesn't inherit additionalAuthenticationChecks.
          */
         final UserDetails userDetails = (UserDetails) processed.getPrincipal();
+        log.debug("Found user details with username: {}", userDetails.getUsername());
         if (!UserI.class.isAssignableFrom(userDetails.getClass())) {
             throw new AuthenticationServiceException("User details class is not of a type I know how to handle: " + userDetails.getClass());
         }
         final UserI xdatUserDetails = (UserI) userDetails;
         if (!xdatUserDetails.isEnabled()) {
+            log.debug("User details with username {} is not enabled", userDetails.getUsername());
             throw new DisabledException("Attempted login to disabled account: " + xdatUserDetails.getUsername());
         }
         if ((XDAT.getSiteConfigPreferences().getEmailVerification() && !xdatUserDetails.isVerified()) || !xdatUserDetails.isAccountNonLocked()) {
