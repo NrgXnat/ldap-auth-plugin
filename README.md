@@ -1,6 +1,6 @@
 # XNAT LDAP Authentication Provider Plugin #
 
-This is the XNAT 1.7 Authentication Provider Plugin. It replaces previous support for LDAP inside of XNAT itself.
+This is the XNAT Authentication Provider Plugin. It replaces previous support for LDAP inside of XNAT itself.
 
 ## Building ##
 

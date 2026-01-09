@@ -10,7 +10,7 @@
             <fileNamePattern>${xnat.home}/logs/ldap.log.%d{yyyy-MM-dd}</fileNamePattern>
         </rollingPolicy>
     </appender>
-    <logger name="org.nrg.xnatx.plugins.auth.ldap" additivity="false" level="DEBUG">
+    <logger name="org.nrg.xnatx.plugins.auth.ldap" additivity="false" level="WARN">
         <appender-ref ref="ldap"/>
     </logger>
 </configuration>
