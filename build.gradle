@@ -9,7 +9,7 @@
 
 buildscript {
     ext {
-        vXnat = "1.9.0"
+        vXnat = "1.10.1-SNAPSHOT"
     }
 }
 
@@ -19,9 +19,9 @@ plugins {
     id "jacoco"
     id "java"
     id "maven-publish"
-    id "com.palantir.git-version" version "0.12.3"
-    id "io.franzbecker.gradle-lombok" version "4.0.0"
-    id "io.spring.dependency-management" version "1.0.11.RELEASE"
+    id "com.palantir.git-version" version "3.0.0"
+    id "io.franzbecker.gradle-lombok" version "5.0.0"
+    id "io.spring.dependency-management" version "1.1.7"
     id "org.nrg.xnat.build.xnat-data-builder" version "${vXnat}"
 }
 
@@ -36,8 +36,15 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+lombok {
+    version = "1.18.34"
+    sha256 = "1ea5ad6c6afcff902d75072b2aaa6695585aebee9f12127e15c0036ba95d2918"
+}
 
 dependencyManagement.imports {
     mavenBom "org.nrg:parent:${vXnat}"
@@ -47,9 +54,7 @@ dependencies {
     implementation("org.nrg.xnat:web") {
         transitive = false
     }
-    implementation("org.nrg.xnat:xnat-data-models") {
-        transitive = false
-    }
+    // xnat-data-models is merged into xnat-web in monorepo 1.10+ — no separate dep
     implementation("org.nrg.xdat:core") {
         transitive = false
     }
@@ -78,8 +83,8 @@ dependencies {
 idea {
     module {
         inheritOutputDirs = false
-        outputDir = compileJava.destinationDir
-        testOutputDir = compileTestJava.destinationDir
+        outputDir = compileJava.destinationDirectory.asFile.get()
+        testOutputDir = compileTestJava.destinationDirectory.asFile.get()
     }
 }
 
@@ -123,9 +128,9 @@ jacoco {
 jacocoTestReport {
     dependsOn test
     reports {
-        xml.enabled = false
-        csv.enabled = false
-        html.enabled = true
+        xml.required = false
+        csv.required = false
+        html.required = true
     }
 }
 
@@ -208,17 +213,17 @@ publishing {
 
     repositories {
         maven {
+            name = "XNAT_Artifactory"
+            url = project.version.toString().endsWith("-SNAPSHOT")
+                ? "https://nrgxnat.jfrog.io/nrgxnat/libs-snapshot-local"
+                : "https://nrgxnat.jfrog.io/nrgxnat/libs-release-local"
+            // CI injects ORG_GRADLE_PROJECT_artifactoryUser/Token env vars (Gradle maps
+            // these to project properties). Local devs can set artifactoryUser/Token in
+            // ~/.gradle/gradle.properties. Mirrors monorepo's buildSrc convention.
             credentials {
-                // These properties must be set in the ~/.gradle/gradle.properties file or passed on the Gradle command
-                // line in the form -PrepoUsername=foo -PrepoPassword=bar.
-                username propertyWithDefault("repoUsername", "username")
-                password propertyWithDefault("repoPassword", "password")
+                username = (project.findProperty("artifactoryUser")  ?: System.getenv("ARTIFACTORY_USER"))  ?: ""
+                password = (project.findProperty("artifactoryToken") ?: System.getenv("ARTIFACTORY_TOKEN")) ?: ""
             }
-            url "https://nrgxnat.jfrog.io/nrgxnat/libs-${project.version.endsWith("-SNAPSHOT") ? "snapshot" : "release"}-local"
         }
     }
-}
-
-String propertyWithDefault(String name, Object value) {
-    hasProperty(name) ? property(name) : value
 }
