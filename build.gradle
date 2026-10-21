@@ -9,7 +9,7 @@
 
 buildscript {
     ext {
-        vXnat = "1.11.0-SNAPSHOT"   // jakarta / Tomcat 10 line
+        vXnat = "1.12.0-SNAPSHOT"   // jakarta / Tomcat 10 line
     }
 }
 
